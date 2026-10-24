@@ -1,6 +1,6 @@
 package com.atsea.zerox.model.dto.chathistory;
 
-import com.yupi.yuaicodemother.common.PageRequest;
+import com.atsea.zerox.common.PageRequest;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 

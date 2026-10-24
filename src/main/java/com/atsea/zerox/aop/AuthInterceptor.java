@@ -1,11 +1,11 @@
 package com.atsea.zerox.aop;
 
-import com.yupi.yuaicodemother.annotation.AuthCheck;
-import com.yupi.yuaicodemother.exception.BusinessException;
-import com.yupi.yuaicodemother.exception.ErrorCode;
-import com.yupi.yuaicodemother.model.entity.User;
-import com.yupi.yuaicodemother.model.enums.UserRoleEnum;
-import com.yupi.yuaicodemother.service.UserService;
+import com.atsea.zerox.annotation.AuthCheck;
+import com.atsea.zerox.exception.BusinessException;
+import com.atsea.zerox.exception.ErrorCode;
+import com.atsea.zerox.model.entity.User;
+import com.atsea.zerox.model.enums.UserRoleEnum;
+import com.atsea.zerox.service.UserService;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import org.aspectj.lang.ProceedingJoinPoint;
