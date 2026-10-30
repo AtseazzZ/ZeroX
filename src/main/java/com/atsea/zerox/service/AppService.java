@@ -2,11 +2,11 @@ package com.atsea.zerox.service;
 
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.core.service.IService;
-import com.atsea.zerox.model.dto.app.AppAddRequest;
-import com.atsea.zerox.model.dto.app.AppQueryRequest;
-import com.atsea.zerox.model.entity.App;
-import com.atsea.zerox.model.entity.User;
-import com.atsea.zerox.model.vo.AppVO;
+import com.yupi.yuaicodemother.model.dto.app.AppAddRequest;
+import com.yupi.yuaicodemother.model.dto.app.AppQueryRequest;
+import com.yupi.yuaicodemother.model.entity.App;
+import com.yupi.yuaicodemother.model.entity.User;
+import com.yupi.yuaicodemother.model.vo.AppVO;
 import reactor.core.publisher.Flux;
 
 import java.util.List;

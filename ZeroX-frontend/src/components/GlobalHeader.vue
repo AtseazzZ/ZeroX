@@ -1,142 +1,160 @@
+<template>
+  <a-layout-header class="header">
+    <a-row :wrap="false">
+      <!-- 左侧：Logo和标题 -->
+      <a-col flex="200px">
+        <RouterLink to="/">
+          <div class="header-left">
+            <img class="logo" src="@/assets/logo.png" alt="Logo" />
+            <h1 class="site-title">鱼皮应用生成</h1>
+          </div>
+        </RouterLink>
+      </a-col>
+      <!-- 中间：导航菜单 -->
+      <a-col flex="auto">
+        <a-menu
+          v-model:selectedKeys="selectedKeys"
+          mode="horizontal"
+          :items="menuItems"
+          @click="handleMenuClick"
+        />
+      </a-col>
+      <!-- 右侧：用户操作区域 -->
+      <a-col>
+        <div class="user-login-status">
+          <div v-if="loginUserStore.loginUser.id">
+            <a-dropdown>
+              <a-space>
+                <a-avatar :src="loginUserStore.loginUser.userAvatar" />
+                {{ loginUserStore.loginUser.userName ?? '无名' }}
+              </a-space>
+              <template #overlay>
+                <a-menu>
+                  <a-menu-item @click="doLogout">
+                    <LogoutOutlined />
+                    退出登录
+                  </a-menu-item>
+                </a-menu>
+              </template>
+            </a-dropdown>
+          </div>
+          <div v-else>
+            <a-button type="primary" href="/user/login">登录</a-button>
+          </div>
+        </div>
+      </a-col>
+    </a-row>
+  </a-layout-header>
+</template>
+
 <script setup lang="ts">
-import { computed, ref, h } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import type { MenuProps } from 'ant-design-vue'
+import { computed, h, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { type MenuProps, message } from 'ant-design-vue'
+import { useLoginUserStore } from '@/stores/loginUser.ts'
+import { userLogout } from '@/api/userController.ts'
+import { LogoutOutlined, HomeOutlined } from '@ant-design/icons-vue'
 
-/**
- * 菜单项配置：新增页面时在此追加即可
- * key 与路由 path 保持一致，用于高亮与跳转
- */
-const menuItems = ref<MenuProps['items']>([
-  { key: '/', label: '首页' },
-  { key: '/about', label: '关于' },
-])
-
-const route = useRoute()
+const loginUserStore = useLoginUserStore()
 const router = useRouter()
+// 当前选中菜单
+const selectedKeys = ref<string[]>(['/'])
+// 监听路由变化，更新当前选中菜单
+router.afterEach((to, from, next) => {
+  selectedKeys.value = [to.path]
+})
 
-/** 当前选中的菜单（与路由联动） */
-const selectedKeys = computed<string[]>(() => [route.path])
+// 菜单配置项
+const originItems = [
+  {
+    key: '/',
+    icon: () => h(HomeOutlined),
+    label: '主页',
+    title: '主页',
+  },
+  {
+    key: '/admin/userManage',
+    label: '用户管理',
+    title: '用户管理',
+  },
+  {
+    key: '/admin/appManage',
+    label: '应用管理',
+    title: '应用管理',
+  },
+  {
+    key: 'others',
+    label: h('a', { href: 'https://www.codefather.cn', target: '_blank' }, '编程导航'),
+    title: '编程导航',
+  },
+]
 
-const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
-  if (typeof key === 'string' && key !== route.path) {
+// 过滤菜单项
+const filterMenus = (menus = [] as MenuProps['items']) => {
+  return menus?.filter((menu) => {
+    const menuKey = menu?.key as string
+    if (menuKey?.startsWith('/admin')) {
+      const loginUser = loginUserStore.loginUser
+      if (!loginUser || loginUser.userRole !== 'admin') {
+        return false
+      }
+    }
+    return true
+  })
+}
+
+// 展示在菜单的路由数组
+const menuItems = computed<MenuProps['items']>(() => filterMenus(originItems))
+
+// 处理菜单点击
+const handleMenuClick: MenuProps['onClick'] = (e) => {
+  const key = e.key as string
+  selectedKeys.value = [key]
+  // 跳转到对应页面
+  if (key.startsWith('/')) {
     router.push(key)
   }
 }
 
-/** 登录占位（后续接入真实登录后替换为头像 + 昵称） */
-const handleLogin = () => {
-  // TODO: 接入登录逻辑
+// 退出登录
+const doLogout = async () => {
+  const res = await userLogout()
+  if (res.data.code === 0) {
+    loginUserStore.setLoginUser({
+      userName: '未登录',
+    })
+    message.success('退出登录成功')
+    await router.push('/user/login')
+  } else {
+    message.error('退出登录失败，' + res.data.message)
+  }
 }
 </script>
 
-<template>
-  <div class="global-header">
-    <div class="header-inner">
-      <!-- 左侧：Logo + 标题 -->
-      <router-link to="/" class="brand">
-        <img src="/logo.png" alt="ZeroX" class="brand-logo" />
-        <span class="brand-title">ZeroX</span>
-      </router-link>
-
-      <!-- 中间：菜单 -->
-      <a-menu
-        class="header-menu"
-        mode="horizontal"
-        :items="menuItems"
-        :selected-keys="selectedKeys"
-        @click="handleMenuClick"
-      />
-
-      <!-- 右侧：登录按钮（占位，后续替换为头像 + 昵称） -->
-      <div class="header-actions">
-        <a-button type="primary" shape="round" class="login-btn" @click="handleLogin">
-          登录
-        </a-button>
-      </div>
-    </div>
-  </div>
-</template>
-
 <style scoped>
-.global-header {
-  width: 100%;
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid #f0f0f0;
-}
-
-.header-inner {
-  max-width: 1280px;
-  margin: 0 auto;
-  height: 64px;
+.header {
+  background: #fff;
   padding: 0 24px;
-  display: flex;
-  align-items: center;
-  gap: 32px;
 }
 
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-shrink: 0;
-  text-decoration: none;
-}
-
-.brand-logo {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  object-fit: cover;
-}
-
-.brand-title {
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
-  font-size: 20px;
-  font-weight: 700;
-  color: #1a1a1a;
-  letter-spacing: -0.5px;
-}
-
-.header-menu {
-  flex: 1;
-  min-width: 0;
-  background: transparent;
-  border-bottom: none;
-  line-height: 62px;
-}
-
-.header-actions {
-  flex-shrink: 0;
+.header-left {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-/* 美团 NoCode 风格：黑色胶囊登录按钮 */
-.login-btn {
-  background: #1a1a1a;
-  border-color: #1a1a1a;
-  font-weight: 500;
-  padding: 0 22px;
+.logo {
+  height: 48px;
+  width: 48px;
 }
 
-.login-btn:hover,
-.login-btn:focus {
-  background: #000 !important;
-  border-color: #000 !important;
+.site-title {
+  margin: 0;
+  font-size: 18px;
+  color: #1890ff;
 }
 
-/* 响应式：小屏隐藏菜单项文字间距收缩 */
-@media (max-width: 768px) {
-  .header-inner {
-    padding: 0 16px;
-    gap: 16px;
-  }
-
-  .brand-title {
-    font-size: 17px;
-  }
+.ant-menu-horizontal {
+  border-bottom: none !important;
 }
 </style>

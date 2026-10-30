@@ -1,8 +1,8 @@
 package com.atsea.zerox.core.handler;
 
-import com.yupi.yuaicodemother.model.entity.User;
-import com.yupi.yuaicodemother.model.enums.CodeGenTypeEnum;
-import com.yupi.yuaicodemother.service.ChatHistoryService;
+import com.atsea.zerox.model.entity.User;
+import com.atsea.zerox.model.enums.CodeGenTypeEnum;
+import com.atsea.zerox.service.ChatHistoryService;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;

@@ -3,17 +3,17 @@ package com.atsea.zerox.service.impl;
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
-import com.atsea.zerox.exception.BusinessException;
-import com.atsea.zerox.exception.ErrorCode;
-import com.atsea.zerox.model.dto.user.UserQueryRequest;
-import com.atsea.zerox.model.enums.UserRoleEnum;
-import com.atsea.zerox.model.vo.LoginUserVO;
-import com.atsea.zerox.model.vo.UserVO;
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
-import com.atsea.zerox.model.entity.User;
-import com.atsea.zerox.mapper.UserMapper;
-import com.atsea.zerox.service.UserService;
+import com.yupi.yuaicodemother.exception.BusinessException;
+import com.yupi.yuaicodemother.exception.ErrorCode;
+import com.yupi.yuaicodemother.model.dto.user.UserQueryRequest;
+import com.yupi.yuaicodemother.model.entity.User;
+import com.yupi.yuaicodemother.mapper.UserMapper;
+import com.yupi.yuaicodemother.model.enums.UserRoleEnum;
+import com.yupi.yuaicodemother.model.vo.LoginUserVO;
+import com.yupi.yuaicodemother.model.vo.UserVO;
+import com.yupi.yuaicodemother.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.util.DigestUtils;
@@ -23,12 +23,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static com.atsea.zerox.constant.UserConstant.USER_LOGIN_STATE;
+import static com.yupi.yuaicodemother.constant.UserConstant.USER_LOGIN_STATE;
 
 /**
  * 用户 服务层实现。
  *
- * @author <a href="https://github.com/AtseazzZ">作者Atsea_zzZ</a>
+ * @author <a href="https://github.com/liyupi">程序员鱼皮</a>
  */
 @Service
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
@@ -181,8 +181,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     @Override
     public String getEncryptPassword(String userPassword) {
         // 盐值，混淆密码
-        final String SALT = "atsea";
+        final String SALT = "yupi";
         return DigestUtils.md5DigestAsHex((userPassword + SALT).getBytes(StandardCharsets.UTF_8));
     }
 }
-

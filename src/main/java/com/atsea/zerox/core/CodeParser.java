@@ -1,7 +1,7 @@
 package com.atsea.zerox.core;
 
-import com.yupi.yuaicodemother.ai.model.HtmlCodeResult;
-import com.yupi.yuaicodemother.ai.model.MultiFileCodeResult;
+import com.atsea.zerox.ai.model.HtmlCodeResult;
+import com.atsea.zerox.ai.model.MultiFileCodeResult;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;

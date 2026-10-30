@@ -1,44 +1,37 @@
-<script setup lang="ts">
-const author = {
-  name: 'Atsea_zzZ',
-  link: 'https://github.com/AtseazzZ',
-}
-</script>
-
 <template>
-  <div class="global-footer">
-    <span class="copyright">
-      个人开发项目，作者
-      <a :href="author.link" target="_blank" rel="noopener noreferrer" class="author-link">
-        {{ author.name }}
-      </a>
-    </span>
-  </div>
+  <a-layout-footer class="footer">
+    <div class="footer-content">
+      <p class="copyright">
+        <a
+          href="https://www.codefather.cn"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="author-link"
+        >
+          编程导航原创项目 by 程序员鱼皮
+        </a>
+      </p>
+    </div>
+  </a-layout-footer>
 </template>
 
+<script setup lang="ts">
+// 无需额外的响应式数据
+</script>
+
 <style scoped>
-.global-footer {
-  width: 100%;
-  padding: 20px 24px;
+.footer {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
   text-align: center;
-  background: #fafafa;
-  border-top: 1px solid #f0f0f0;
+  padding: 20px;
+  margin-top: 40px;
+  border-top: 1px solid rgba(102, 126, 234, 0.1);
 }
 
 .copyright {
-  font-size: 13px;
-  color: #8c8c8c;
-}
-
-.author-link {
-  color: #1a1a1a;
-  font-weight: 500;
-  text-decoration: none;
-  margin-left: 2px;
-  transition: color 0.2s;
-}
-
-.author-link:hover {
-  color: #00b96b;
+  margin: 0;
+  color: #666;
+  font-size: 14px;
 }
 </style>

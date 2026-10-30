@@ -2,11 +2,11 @@ package com.atsea.zerox.service.impl;
 
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.util.StrUtil;
-import com.atsea.zerox.exception.ErrorCode;
-import com.atsea.zerox.exception.ThrowUtils;
-import com.atsea.zerox.manager.CosManager;
-import com.atsea.zerox.service.ScreenshotService;
-import com.atsea.zerox.utils.WebScreenshotUtils;
+import com.yupi.yuaicodemother.exception.ErrorCode;
+import com.yupi.yuaicodemother.exception.ThrowUtils;
+import com.yupi.yuaicodemother.manager.CosManager;
+import com.yupi.yuaicodemother.service.ScreenshotService;
+import com.yupi.yuaicodemother.utils.WebScreenshotUtils;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

@@ -1,6 +1,6 @@
 package com.atsea.zerox.ai;
 
-import com.yupi.yuaicodemother.model.enums.CodeGenTypeEnum;
+import com.atsea.zerox.model.enums.CodeGenTypeEnum;
 import dev.langchain4j.service.SystemMessage;
 
 /**

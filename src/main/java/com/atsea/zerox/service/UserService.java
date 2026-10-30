@@ -1,11 +1,11 @@
 package com.atsea.zerox.service;
 
-import com.atsea.zerox.model.dto.user.UserQueryRequest;
-import com.atsea.zerox.model.vo.LoginUserVO;
-import com.atsea.zerox.model.vo.UserVO;
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.core.service.IService;
-import com.atsea.zerox.model.entity.User;
+import com.yupi.yuaicodemother.model.dto.user.UserQueryRequest;
+import com.yupi.yuaicodemother.model.entity.User;
+import com.yupi.yuaicodemother.model.vo.LoginUserVO;
+import com.yupi.yuaicodemother.model.vo.UserVO;
 import jakarta.servlet.http.HttpServletRequest;
 
 import java.util.List;
@@ -13,7 +13,7 @@ import java.util.List;
 /**
  * 用户 服务层。
  *
- * @author <a href="https://github.com/AtseazzZ">作者Atsea_zzZ</a>
+ * @author <a href="https://github.com/liyupi">程序员鱼皮</a>
  */
 public interface UserService extends IService<User> {
 
