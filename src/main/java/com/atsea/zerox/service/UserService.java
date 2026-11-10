@@ -2,10 +2,10 @@ package com.atsea.zerox.service;
 
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.core.service.IService;
-import com.yupi.yuaicodemother.model.dto.user.UserQueryRequest;
-import com.yupi.yuaicodemother.model.entity.User;
-import com.yupi.yuaicodemother.model.vo.LoginUserVO;
-import com.yupi.yuaicodemother.model.vo.UserVO;
+import com.atsea.zerox.model.dto.user.UserQueryRequest;
+import com.atsea.zerox.model.entity.User;
+import com.atsea.zerox.model.vo.LoginUserVO;
+import com.atsea.zerox.model.vo.UserVO;
 import jakarta.servlet.http.HttpServletRequest;
 
 import java.util.List;

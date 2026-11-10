@@ -1,7 +1,7 @@
 package com.atsea.zerox.mapper;
 
 import com.mybatisflex.core.BaseMapper;
-import com.atsea.zerox.genresult.entity.ChatHistory;
+import com.atsea.zerox.model.entity.ChatHistory;
 
 /**
  * 对话历史 映射层。
