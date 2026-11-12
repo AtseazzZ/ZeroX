@@ -8,6 +8,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Scope;
 
+import java.util.Map;
+
 /**
  * 智能路由模型配置
  */
@@ -37,6 +39,8 @@ public class RoutingAiModelConfig {
     @Scope("prototype")
     public ChatModel routingChatModelPrototype() {
         return OpenAiChatModel.builder()
+                // Avoid Brotli decoder truncation when Spring probes the response stream.
+                .customHeaders(Map.of("Accept-Encoding", "identity"))
                 .apiKey(apiKey)
                 .modelName(modelName)
                 .baseUrl(baseUrl)

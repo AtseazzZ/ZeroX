@@ -11,6 +11,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Scope;
 
 import java.util.List;
+import java.util.Map;
 
 @Configuration
 @ConfigurationProperties(prefix = "langchain4j.open-ai.reasoning-streaming-chat-model")
@@ -41,6 +42,8 @@ public class ReasoningStreamingChatModelConfig {
     @Scope("prototype")
     public StreamingChatModel reasoningStreamingChatModelPrototype() {
         return OpenAiStreamingChatModel.builder()
+                // Avoid Brotli decoder truncation when Spring probes the response stream.
+                .customHeaders(Map.of("Accept-Encoding", "identity"))
                 .apiKey(apiKey)
                 .baseUrl(baseUrl)
                 .modelName(modelName)

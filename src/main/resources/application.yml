@@ -22,6 +22,17 @@ spring:
   profiles:
     active: local
 
+# The ordinary chat model is created by LangChain4j auto-configuration.
+# Keep AI responses uncompressed to avoid the transitive Brotli decoder bug.
+langchain4j:
+  open-ai:
+    chat-model:
+      custom-headers:
+        Accept-Encoding: identity
+    streaming-chat-model:
+      custom-headers:
+        Accept-Encoding: identity
+
 server:
   port: 8123
   servlet:

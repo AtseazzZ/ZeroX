@@ -11,6 +11,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Scope;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 流式对话模型配置
@@ -44,6 +45,8 @@ public class StreamingChatModelConfig {
     @Scope("prototype")
     public StreamingChatModel streamingChatModelPrototype() {
         return OpenAiStreamingChatModel.builder()
+                // Avoid Brotli decoder truncation when Spring probes the response stream.
+                .customHeaders(Map.of("Accept-Encoding", "identity"))
                 .apiKey(apiKey)
                 .baseUrl(baseUrl)
                 .modelName(modelName)

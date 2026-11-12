@@ -1,7 +1,10 @@
 ### CUSTOM ###
 application-local.yml
 application-prod.yml
+application-prod-sample.yml
 tmp
+nginx/logs/
+nginx/temp/
 
 HELP.md
 target/
