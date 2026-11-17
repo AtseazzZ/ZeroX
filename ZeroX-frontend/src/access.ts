@@ -13,7 +13,12 @@ router.beforeEach(async (to, from, next) => {
   let loginUser = loginUserStore.loginUser
   // 确保页面刷新，首次加载时，能够等后端返回用户信息后再校验权限
   if (firstFetchLoginUser) {
-    await loginUserStore.fetchLoginUser()
+    try {
+      await loginUserStore.fetchLoginUser()
+    } catch (error) {
+      // 后端暂时不可用时，按未登录状态继续渲染页面，避免 router-view 变成空白
+      console.warn('获取登录用户失败，按未登录状态继续：', error)
+    }
     loginUser = loginUserStore.loginUser
     firstFetchLoginUser = false
   }
