@@ -1,160 +1,299 @@
 <template>
-  <a-layout-header class="header">
-    <a-row :wrap="false">
-      <!-- 左侧：Logo和标题 -->
-      <a-col flex="200px">
-        <RouterLink to="/">
-          <div class="header-left">
-            <img class="logo" src="@/assets/logo.png" alt="Logo" />
-            <h1 class="site-title">鱼皮应用生成</h1>
-          </div>
-        </RouterLink>
-      </a-col>
-      <!-- 中间：导航菜单 -->
-      <a-col flex="auto">
-        <a-menu
-          v-model:selectedKeys="selectedKeys"
-          mode="horizontal"
-          :items="menuItems"
-          @click="handleMenuClick"
-        />
-      </a-col>
-      <!-- 右侧：用户操作区域 -->
-      <a-col>
-        <div class="user-login-status">
-          <div v-if="loginUserStore.loginUser.id">
-            <a-dropdown>
-              <a-space>
-                <a-avatar :src="loginUserStore.loginUser.userAvatar" />
-                {{ loginUserStore.loginUser.userName ?? '无名' }}
-              </a-space>
-              <template #overlay>
-                <a-menu>
-                  <a-menu-item @click="doLogout">
-                    <LogoutOutlined />
-                    退出登录
-                  </a-menu-item>
-                </a-menu>
-              </template>
-            </a-dropdown>
-          </div>
-          <div v-else>
-            <a-button type="primary" href="/user/login">登录</a-button>
-          </div>
-        </div>
-      </a-col>
-    </a-row>
-  </a-layout-header>
+  <header class="global-header">
+    <div class="header-inner">
+      <RouterLink to="/" class="brand" aria-label="ZeroX 首页">
+        <img class="brand-mark" src="/zerox-mark.svg" alt="" />
+        <span>ZeroX</span>
+      </RouterLink>
+
+      <nav class="navigation" aria-label="主导航">
+        <RouterLink to="/" :class="{ 'is-active': route.path === '/' && !route.hash }"
+          >首页</RouterLink
+        >
+        <RouterLink
+          :to="{ path: '/', hash: '#showcase' }"
+          :class="{ 'is-active': route.path === '/' && route.hash === '#showcase' }"
+          >案例广场</RouterLink
+        >
+        <a
+          class="github-link"
+          href="https://github.com/AtseazzZ"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          GitHub <span aria-hidden="true">↗</span>
+        </a>
+      </nav>
+
+      <div class="header-actions">
+        <a-dropdown v-if="isAdmin" :trigger="['click']" placement="bottomRight">
+          <button class="admin-button" type="button" aria-label="打开管理菜单">
+            管理 <DownOutlined />
+          </button>
+          <template #overlay>
+            <a-menu>
+              <a-menu-item key="users"
+                ><RouterLink to="/admin/userManage">用户管理</RouterLink></a-menu-item
+              >
+              <a-menu-item key="apps"
+                ><RouterLink to="/admin/appManage">应用管理</RouterLink></a-menu-item
+              >
+              <a-menu-item key="chats"
+                ><RouterLink to="/admin/chatManage">对话管理</RouterLink></a-menu-item
+              >
+            </a-menu>
+          </template>
+        </a-dropdown>
+
+        <a-dropdown v-if="loginUserStore.loginUser.id" :trigger="['click']" placement="bottomRight">
+          <button class="user-button" type="button" aria-label="打开用户菜单">
+            <a-avatar :src="loginUserStore.loginUser.userAvatar" :size="32">
+              {{ loginUserStore.loginUser.userName?.charAt(0) || 'Z' }}
+            </a-avatar>
+            <span class="user-name">{{ loginUserStore.loginUser.userName || 'ZeroX 用户' }}</span>
+            <DownOutlined class="user-chevron" />
+          </button>
+          <template #overlay>
+            <a-menu>
+              <a-menu-item key="logout" @click="doLogout"><LogoutOutlined /> 退出登录</a-menu-item>
+            </a-menu>
+          </template>
+        </a-dropdown>
+        <RouterLink v-else to="/user/login" class="login-button"
+          >登录 <span aria-hidden="true">↗</span></RouterLink
+        >
+      </div>
+    </div>
+  </header>
 </template>
 
 <script setup lang="ts">
-import { computed, h, ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { type MenuProps, message } from 'ant-design-vue'
-import { useLoginUserStore } from '@/stores/loginUser.ts'
-import { userLogout } from '@/api/userController.ts'
-import { LogoutOutlined, HomeOutlined } from '@ant-design/icons-vue'
+import { computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { message } from 'ant-design-vue'
+import { DownOutlined, LogoutOutlined } from '@ant-design/icons-vue'
+import { useLoginUserStore } from '@/stores/loginUser'
+import { userLogout } from '@/api/userController'
 
-const loginUserStore = useLoginUserStore()
+const route = useRoute()
 const router = useRouter()
-// 当前选中菜单
-const selectedKeys = ref<string[]>(['/'])
-// 监听路由变化，更新当前选中菜单
-router.afterEach((to, from, next) => {
-  selectedKeys.value = [to.path]
-})
+const loginUserStore = useLoginUserStore()
+const isAdmin = computed(() => loginUserStore.loginUser.userRole === 'admin')
 
-// 菜单配置项
-const originItems = [
-  {
-    key: '/',
-    icon: () => h(HomeOutlined),
-    label: '主页',
-    title: '主页',
-  },
-  {
-    key: '/admin/userManage',
-    label: '用户管理',
-    title: '用户管理',
-  },
-  {
-    key: '/admin/appManage',
-    label: '应用管理',
-    title: '应用管理',
-  },
-  {
-    key: 'others',
-    label: h('a', { href: 'https://www.codefather.cn', target: '_blank' }, '编程导航'),
-    title: '编程导航',
-  },
-]
-
-// 过滤菜单项
-const filterMenus = (menus = [] as MenuProps['items']) => {
-  return menus?.filter((menu) => {
-    const menuKey = menu?.key as string
-    if (menuKey?.startsWith('/admin')) {
-      const loginUser = loginUserStore.loginUser
-      if (!loginUser || loginUser.userRole !== 'admin') {
-        return false
-      }
-    }
-    return true
-  })
-}
-
-// 展示在菜单的路由数组
-const menuItems = computed<MenuProps['items']>(() => filterMenus(originItems))
-
-// 处理菜单点击
-const handleMenuClick: MenuProps['onClick'] = (e) => {
-  const key = e.key as string
-  selectedKeys.value = [key]
-  // 跳转到对应页面
-  if (key.startsWith('/')) {
-    router.push(key)
-  }
-}
-
-// 退出登录
 const doLogout = async () => {
-  const res = await userLogout()
-  if (res.data.code === 0) {
-    loginUserStore.setLoginUser({
-      userName: '未登录',
-    })
-    message.success('退出登录成功')
-    await router.push('/user/login')
-  } else {
-    message.error('退出登录失败，' + res.data.message)
+  try {
+    const res = await userLogout()
+    if (res.data.code === 0) {
+      loginUserStore.setLoginUser({ userName: '未登录' })
+      message.success('退出登录成功')
+      await router.push('/user/login')
+    } else {
+      message.error('退出登录失败，' + res.data.message)
+    }
+  } catch {
+    message.error('退出登录失败，请稍后重试')
   }
 }
 </script>
 
 <style scoped>
-.header {
-  background: #fff;
-  padding: 0 24px;
+.global-header {
+  position: relative;
+  z-index: 10;
+  flex-shrink: 0;
+  height: 80px;
+  background: #fafbf8;
 }
 
-.header-left {
+.header-inner {
   display: flex;
   align-items: center;
-  gap: 12px;
+  height: 100%;
+  max-width: 1360px;
+  margin: 0 auto;
+  padding: 0 40px;
+  gap: 44px;
 }
 
-.logo {
-  height: 48px;
-  width: 48px;
+.brand {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 10px;
+  color: #131c23;
+  font-size: 28px;
+  font-weight: 750;
+  line-height: 1;
+  letter-spacing: -1.1px;
+  text-decoration: none;
 }
 
-.site-title {
-  margin: 0;
-  font-size: 18px;
-  color: #1890ff;
+.brand-mark {
+  width: 38px;
+  height: 38px;
 }
 
-.ant-menu-horizontal {
-  border-bottom: none !important;
+.navigation {
+  display: flex;
+  align-items: center;
+  gap: 30px;
+  white-space: nowrap;
+}
+
+.navigation a {
+  color: #777e80;
+  font-size: 14px;
+  text-decoration: none;
+  transition: color 160ms;
+}
+
+.navigation a:hover,
+.navigation a.is-active {
+  color: #111b23;
+}
+.github-link span {
+  margin-left: 3px;
+  font-size: 15px;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-left: auto;
+}
+
+.login-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  min-width: 96px;
+  height: 40px;
+  padding: 0 20px;
+  border-radius: 12px;
+  background: #162029;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  transition:
+    background 160ms,
+    transform 160ms;
+}
+
+.login-button:hover {
+  transform: translateY(-1px);
+  background: #2b3c42;
+  color: #fff;
+}
+
+.admin-button,
+.user-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 5px 0;
+  border: 0;
+  background: transparent;
+  color: #354044;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.admin-button .anticon,
+.user-chevron {
+  font-size: 10px;
+  color: #858d8f;
+}
+.user-name {
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.user-button :deep(.ant-avatar) {
+  background: #ddf5eb;
+  color: #216551;
+}
+
+.brand:focus-visible,
+.navigation a:focus-visible,
+.login-button:focus-visible,
+.admin-button:focus-visible,
+.user-button:focus-visible {
+  outline: 3px solid #38cfa5;
+  outline-offset: 5px;
+}
+
+@media (max-width: 760px) {
+  .header-inner {
+    padding: 0 24px;
+    gap: 24px;
+  }
+  .navigation {
+    gap: 20px;
+  }
+  .user-name,
+  .user-chevron {
+    display: none;
+  }
+  .header-actions {
+    gap: 12px;
+  }
+}
+
+@media (max-width: 600px) {
+  .global-header {
+    height: 72px;
+  }
+  .header-inner {
+    padding: 0 20px;
+    gap: 20px;
+  }
+  .brand {
+    gap: 7px;
+    font-size: 23px;
+  }
+  .brand-mark {
+    width: 31px;
+    height: 31px;
+  }
+  .navigation {
+    gap: 16px;
+    margin-left: auto;
+  }
+  .navigation a {
+    font-size: 12px;
+  }
+  .navigation .github-link {
+    display: none;
+  }
+  .header-actions {
+    margin-left: 0;
+  }
+  .login-button {
+    min-width: 62px;
+    height: 35px;
+    padding: 0 14px;
+    font-size: 12px;
+  }
+  .login-button span {
+    display: none;
+  }
+}
+
+@media (max-width: 390px) {
+  .header-inner {
+    padding: 0 16px;
+    gap: 14px;
+  }
+  .navigation {
+    gap: 12px;
+  }
+  .navigation a:first-child {
+    display: none;
+  }
 }
 </style>

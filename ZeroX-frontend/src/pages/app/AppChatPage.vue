@@ -3,8 +3,8 @@
     <!-- 顶部栏 -->
     <div class="header-bar">
       <div class="header-left">
-        <h1 class="app-name">{{ appInfo?.appName || '网站生成器' }}</h1>
-        <a-tag v-if="appInfo?.codeGenType" color="blue" class="code-gen-type-tag">
+        <h1 class="app-name">{{ appInfo?.appName || 'ZeroX 创作空间' }}</h1>
+        <a-tag v-if="appInfo?.codeGenType" color="green" class="code-gen-type-tag">
           {{ formatCodeGenType(appInfo.codeGenType) }}
         </a-tag>
       </div>
@@ -57,7 +57,7 @@
             </div>
             <div v-else class="ai-message">
               <div class="message-avatar">
-                <a-avatar :src="aiAvatar" />
+                <a-avatar src="/zerox-mark.svg" />
               </div>
               <div class="message-content">
                 <MarkdownRenderer v-if="message.content" :content="message.content" />
@@ -148,7 +148,7 @@
       <!-- 右侧网页展示区域 -->
       <div class="preview-section">
         <div class="preview-header">
-          <h3>生成后的网页展示</h3>
+          <h3>实时预览</h3>
           <div class="preview-actions">
             <a-button
                 v-if="isOwner && previewUrl"
@@ -226,7 +226,6 @@ import request from '@/request'
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
 import AppDetailModal from '@/components/AppDetailModal.vue'
 import DeploySuccessModal from '@/components/DeploySuccessModal.vue'
-import aiAvatar from '@/assets/aiAvatar.png'
 import { API_BASE_URL, getStaticPreviewUrl } from '@/config/env'
 import { VisualEditor, type ElementInfo } from '@/utils/visualEditor'
 
@@ -771,11 +770,12 @@ onUnmounted(() => {
 
 <style scoped>
 #appChatPage {
-  height: 100vh;
+  height: calc(100dvh - 80px);
+  min-height: 640px;
   display: flex;
   flex-direction: column;
   padding: 16px;
-  background: #fdfdfd;
+  background: #f5f7f1;
 }
 
 /* 顶部栏 */
@@ -784,12 +784,15 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 12px 16px;
+  flex-wrap: wrap;
+  gap: 14px;
 }
 
 .header-left {
   display: flex;
   align-items: center;
   gap: 12px;
+  min-width: 0;
 }
 
 .code-gen-type-tag {
@@ -800,12 +803,17 @@ onUnmounted(() => {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: #263e2e;
+  max-width: min(45vw, 500px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .header-right {
   display: flex;
-  gap: 12px;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 /* 主要内容区域 */
@@ -823,13 +831,15 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-radius: 16px;
+  border: 1px solid #e4eadd;
+  min-height: 0;
   overflow: hidden;
 }
 
 .messages-container {
-  flex: 0.9;
+  flex: 1;
+  min-height: 0;
   padding: 16px;
   overflow-y: auto;
   scroll-behavior: smooth;
@@ -862,13 +872,13 @@ onUnmounted(() => {
 }
 
 .user-message .message-content {
-  background: #1890ff;
-  color: white;
+  background: #e5f6ed;
+  color: #244834;
 }
 
 .ai-message .message-content {
-  background: #f5f5f5;
-  color: #1a1a1a;
+  background: #f6f8f2;
+  color: #344a38;
   padding: 8px 12px;
 }
 
@@ -894,6 +904,7 @@ onUnmounted(() => {
 .input-container {
   padding: 16px;
   background: white;
+  border-top: 1px solid #f0f3eb;
 }
 
 .input-wrapper {
@@ -916,8 +927,8 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-radius: 16px;
+  border: 1px solid #e4eadd;
   overflow: hidden;
 }
 
@@ -926,7 +937,10 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 16px;
-  border-bottom: 1px solid #e8e8e8;
+  border-bottom: 1px solid #e9eee3;
+  background: #fcfdf9;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
 .preview-header h3 {
@@ -985,14 +999,21 @@ onUnmounted(() => {
 
 /* 响应式设计 */
 @media (max-width: 1024px) {
+  #appChatPage {
+    height: auto;
+    min-height: calc(100dvh - 80px);
+  }
+
   .main-content {
     flex-direction: column;
+    overflow: visible;
   }
 
   .chat-section,
   .preview-section {
     flex: none;
-    height: 50vh;
+    height: 62vh;
+    min-height: 420px;
   }
 }
 

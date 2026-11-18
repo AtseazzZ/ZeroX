@@ -18,7 +18,8 @@ import GlobalFooter from '@/components/GlobalFooter.vue'
 
 <style scoped>
 .basic-layout {
-  background: none;
+  min-height: 100vh;
+  background: #f8f9f6;
 }
 
 .main-content {
@@ -26,5 +27,6 @@ import GlobalFooter from '@/components/GlobalFooter.vue'
   padding: 0;
   background: none;
   margin: 0;
+  flex: 1;
 }
 </style>

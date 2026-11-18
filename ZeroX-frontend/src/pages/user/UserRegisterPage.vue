@@ -1,111 +1,233 @@
 <template>
-  <div id="userRegisterPage">
-    <h2 class="title">鱼皮 AI 应用生成 - 用户注册</h2>
-    <div class="desc">不写一行代码，生成完整应用</div>
-    <a-form :model="formState" name="basic" autocomplete="off" @finish="handleSubmit">
-      <a-form-item name="userAccount" :rules="[{ required: true, message: '请输入账号' }]">
-        <a-input v-model:value="formState.userAccount" placeholder="请输入账号" />
-      </a-form-item>
-      <a-form-item
-        name="userPassword"
-        :rules="[
-          { required: true, message: '请输入密码' },
-          { min: 8, message: '密码不能小于 8 位' },
-        ]"
-      >
-        <a-input-password v-model:value="formState.userPassword" placeholder="请输入密码" />
-      </a-form-item>
-      <a-form-item
-        name="checkPassword"
-        :rules="[
-          { required: true, message: '请确认密码' },
-          { min: 8, message: '密码不能小于 8 位' },
-          { validator: validateCheckPassword },
-        ]"
-      >
-        <a-input-password v-model:value="formState.checkPassword" placeholder="请确认密码" />
-      </a-form-item>
-      <div class="tips">
-        已有账号？
-        <RouterLink to="/user/login">去登录</RouterLink>
-      </div>
-      <a-form-item>
-        <a-button type="primary" html-type="submit" style="width: 100%">注册</a-button>
-      </a-form-item>
-    </a-form>
-  </div>
+  <main id="userRegisterPage" class="auth-page">
+    <section class="auth-card" aria-labelledby="register-title">
+      <RouterLink to="/" class="auth-brand">
+        <img src="/zerox-mark.svg" alt="" /><span>ZeroX</span>
+      </RouterLink>
+      <h1 id="register-title" class="title">开启你的创造之旅</h1>
+      <p class="desc">加入 ZeroX，从一句话开始构建你的应用。</p>
+      <a-form :model="formState" layout="vertical" name="register" @finish="handleSubmit">
+        <a-form-item
+          label="账号"
+          name="userAccount"
+          :rules="[
+            { required: true, message: '请输入账号' },
+            { min: 4, message: '账号不能少于 4 位' },
+          ]"
+        >
+          <a-input
+            v-model:value="formState.userAccount"
+            autocomplete="username"
+            placeholder="设置账号，至少 4 位"
+          />
+        </a-form-item>
+        <a-form-item
+          label="密码"
+          name="userPassword"
+          :rules="[
+            { required: true, message: '请输入密码' },
+            { min: 8, message: '密码不能小于 8 位' },
+          ]"
+        >
+          <a-input-password
+            v-model:value="formState.userPassword"
+            autocomplete="new-password"
+            placeholder="设置密码，至少 8 位"
+          />
+        </a-form-item>
+        <a-form-item
+          label="确认密码"
+          name="checkPassword"
+          :dependencies="['userPassword']"
+          :rules="[
+            { required: true, message: '请确认密码' },
+            { min: 8, message: '密码不能小于 8 位' },
+            { validator: validateCheckPassword },
+          ]"
+        >
+          <a-input-password
+            v-model:value="formState.checkPassword"
+            autocomplete="new-password"
+            placeholder="再次输入密码"
+          />
+        </a-form-item>
+        <a-form-item class="submit-item">
+          <a-button class="submit-button" type="primary" html-type="submit" :loading="submitting"
+            >创建 ZeroX 账号</a-button
+          >
+        </a-form-item>
+        <p class="tips">
+          已有账号？<RouterLink :to="{ path: '/user/login', query: redirectQuery }"
+            >前往登录 ↗</RouterLink
+          >
+        </p>
+      </a-form>
+      <p class="auth-note">从零开始，创造无限可能。</p>
+    </section>
+  </main>
 </template>
 
 <script setup lang="ts">
-import { useRouter } from 'vue-router'
-import { userRegister } from '@/api/userController.ts'
+import { useRoute, useRouter } from 'vue-router'
+import { userRegister } from '@/api/userController'
 import { message } from 'ant-design-vue'
-import { reactive } from 'vue'
+import { computed, reactive, ref } from 'vue'
 
 const router = useRouter()
-
+const route = useRoute()
+const redirectQuery = computed(() =>
+  typeof route.query.redirect === 'string' ? { redirect: route.query.redirect } : {},
+)
+const submitting = ref(false)
 const formState = reactive<API.UserRegisterRequest>({
   userAccount: '',
   userPassword: '',
   checkPassword: '',
 })
 
-/**
- * 验证确认密码
- * @param rule
- * @param value
- * @param callback
- */
-const validateCheckPassword = (rule: unknown, value: string, callback: (error?: Error) => void) => {
+const validateCheckPassword = async (_rule: unknown, value: string) => {
   if (value && value !== formState.userPassword) {
-    callback(new Error('两次输入密码不一致'))
-  } else {
-    callback()
+    throw new Error('两次输入密码不一致')
   }
 }
 
-/**
- * 提交表单
- * @param values
- */
 const handleSubmit = async (values: API.UserRegisterRequest) => {
-  const res = await userRegister(values)
-  // 注册成功，跳转到登录页面
-  if (res.data.code === 0) {
-    message.success('注册成功')
-    router.push({
-      path: '/user/login',
-      replace: true,
-    })
-  } else {
-    message.error('注册失败，' + res.data.message)
+  if (submitting.value) return
+  submitting.value = true
+  try {
+    const res = await userRegister(values)
+    if (res.data.code === 0) {
+      message.success('注册成功')
+      await router.replace({ path: '/user/login', query: redirectQuery.value })
+    } else {
+      message.error('注册失败，' + res.data.message)
+    }
+  } catch {
+    message.error('注册失败，请稍后重试')
+  } finally {
+    submitting.value = false
   }
 }
 </script>
 
 <style scoped>
-#userRegisterPage {
-  background: white;
-  max-width: 720px;
-  padding: 24px;
-  margin: 24px auto;
+.auth-page {
+  display: grid;
+  place-items: center;
+  min-height: calc(100vh - 180px);
+  padding: 56px 24px 72px;
+  background:
+    radial-gradient(ellipse at 15% 40%, rgba(160, 243, 211, 0.22), transparent 50%),
+    radial-gradient(ellipse at 90% 70%, rgba(177, 208, 255, 0.2), transparent 50%), #fafbf8;
 }
 
+.auth-card {
+  width: 100%;
+  max-width: 420px;
+  padding: 36px;
+  border: 1px solid #e8ece7;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 16px 64px rgba(28, 58, 44, 0.045);
+}
+
+.auth-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  margin-bottom: 30px;
+  color: #15251f;
+  font-size: 23px;
+  font-weight: 750;
+  letter-spacing: -0.8px;
+  text-decoration: none;
+}
+
+.auth-brand img {
+  width: 34px;
+  height: 34px;
+}
 .title {
+  margin: 0 0 10px;
   text-align: center;
-  margin-bottom: 16px;
+  color: #17251f;
+  font-size: 25px;
+  font-weight: 650;
 }
-
 .desc {
+  margin: 0 0 32px;
   text-align: center;
-  color: #bbb;
-  margin-bottom: 16px;
+  color: #89918d;
+  font-size: 13px;
+}
+.auth-card :deep(.ant-form-item-label > label) {
+  color: #4b5952;
+  font-size: 13px;
+}
+.auth-card :deep(.ant-input),
+.auth-card :deep(.ant-input-affix-wrapper) {
+  min-height: 44px;
+  border-color: #e2e8e3;
+  border-radius: 10px;
+  font-size: 14px;
+}
+.auth-card :deep(.ant-input-affix-wrapper .ant-input) {
+  min-height: unset;
+  border-radius: 0;
+}
+.auth-card :deep(.ant-input:hover),
+.auth-card :deep(.ant-input-affix-wrapper:hover) {
+  border-color: #9bcdb9;
+}
+.auth-card :deep(.ant-input:focus),
+.auth-card :deep(.ant-input-affix-wrapper-focused) {
+  border-color: #2cb88a;
+  box-shadow: 0 0 0 3px rgba(46, 230, 175, 0.09);
+}
+.submit-item {
+  margin: 28px 0 0;
+}
+.submit-button {
+  width: 100%;
+  height: 44px;
+  border: 0;
+  border-radius: 10px;
+  background: #162029;
+  box-shadow: none;
+  font-size: 14px;
+}
+.submit-button:hover,
+.submit-button:focus {
+  background: #2b3c42 !important;
+}
+.tips {
+  margin: 24px 0 0;
+  color: #8a938e;
+  font-size: 13px;
+  text-align: center;
+}
+.tips a {
+  margin-left: 6px;
+  color: #1e8a65;
+  font-weight: 500;
+}
+.auth-note {
+  margin: 26px 0 0;
+  color: #a0a8a3;
+  text-align: center;
+  font-size: 11px;
+  letter-spacing: 0.2px;
 }
 
-.tips {
-  margin-bottom: 16px;
-  color: #bbb;
-  font-size: 13px;
-  text-align: right;
+@media (max-width: 480px) {
+  .auth-page {
+    min-height: calc(100vh - 170px);
+    padding: 28px 20px 48px;
+  }
+  .auth-card {
+    padding: 28px 24px;
+    border-radius: 20px;
+  }
 }
 </style>
