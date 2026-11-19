@@ -5,6 +5,7 @@ import { message } from 'ant-design-vue'
 import {
   ArrowRightOutlined,
   ArrowUpOutlined,
+  ApartmentOutlined,
   AppstoreOutlined,
   CodeOutlined,
   GlobalOutlined,
@@ -20,6 +21,8 @@ import AppCard from '@/components/AppCard.vue'
 const router = useRouter()
 const loginUserStore = useLoginUserStore()
 const userPrompt = ref('')
+type CreationMode = 'standard' | 'workflow'
+const creationMode = ref<CreationMode>('standard')
 const promptInput = ref<HTMLTextAreaElement>()
 const creating = ref(false)
 const activeTab = ref<'featured' | 'mine'>('featured')
@@ -37,6 +40,22 @@ let latestRequest = 0
 const isLoggedIn = computed(() => Boolean(loginUserStore.loginUser.id))
 const canCreate = computed(() => Boolean(userPrompt.value.trim()) && !creating.value)
 const hasFilter = computed(() => Boolean(activeType.value || searchQuery.value))
+const isWorkflowMode = computed(() => creationMode.value === 'workflow')
+
+const modeOptions = [
+  {
+    value: 'standard' as const,
+    label: '标准模式',
+    hint: '自然对话生成',
+    icon: CodeOutlined,
+  },
+  {
+    value: 'workflow' as const,
+    label: '工作流模式',
+    hint: '分步执行复杂流程',
+    icon: ApartmentOutlined,
+  },
+]
 
 const promptExamples = [
   {
@@ -85,6 +104,7 @@ const createApp = async () => {
   if (!canCreate.value) return
   if (!isLoggedIn.value) {
     sessionStorage.setItem('zerox:prompt', userPrompt.value)
+    sessionStorage.setItem('zerox:agent', String(isWorkflowMode.value))
     message.info('登录后，即可开始创作')
     await router.push({ path: '/user/login', query: { redirect: '/' } })
     return
@@ -94,7 +114,11 @@ const createApp = async () => {
     const res = await addApp({ initPrompt: userPrompt.value.trim() })
     if (res.data.code === 0 && res.data.data) {
       sessionStorage.removeItem('zerox:prompt')
-      await router.push(`/app/chat/${String(res.data.data)}`)
+      sessionStorage.removeItem('zerox:agent')
+      await router.push({
+        path: `/app/chat/${String(res.data.data)}`,
+        query: isWorkflowMode.value ? { agent: 'true' } : {},
+      })
     } else {
       message.error(res.data.message || '创建失败，请重试')
     }
@@ -155,7 +179,7 @@ const resetFilters = () => {
   searchQuery.value = ''
 }
 const viewChat = (appId: string | number | undefined) => {
-  if (appId) router.push(`/app/chat/${appId}?view=1`)
+  if (appId) router.push({ path: `/app/chat/${appId}`, query: { view: '1' } })
 }
 const viewWork = (app: API.AppVO) => {
   if (app.deployKey) window.open(getDeployUrl(app.deployKey), '_blank', 'noopener,noreferrer')
@@ -166,6 +190,7 @@ watch([activeTab, activeType, searchQuery, () => loginUserStore.loginUser.id], (
 })
 onMounted(() => {
   userPrompt.value = sessionStorage.getItem('zerox:prompt') || ''
+  creationMode.value = sessionStorage.getItem('zerox:agent') === 'true' ? 'workflow' : 'standard'
   loadApps()
 })
 onUnmounted(() => {
@@ -198,14 +223,25 @@ onUnmounted(() => {
             @keydown="handlePromptKeydown"
           ></textarea>
           <div class="composer-toolbar">
-            <span class="composer-mode"
-              ><svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                <path
-                  d="m10 2 2.2 5.8L18 10l-5.8 2.2L10 18l-2.2-5.8L2 10l5.8-2.2L10 2Z"
-                  fill="currentColor"
-                /></svg
-              >{{ creating ? '正在为你创建应用' : 'AI 自由创作' }}</span
-            >
+            <div class="composer-mode-switch" role="group" aria-label="创建模式">
+              <button
+                v-for="option in modeOptions"
+                :key="option.value"
+                type="button"
+                class="composer-mode-option"
+                :class="{ active: creationMode === option.value }"
+                :aria-pressed="creationMode === option.value"
+                :title="option.hint"
+                :disabled="creating"
+                @click="creationMode = option.value"
+              >
+                <component :is="option.icon" aria-hidden="true" />
+                <span>{{ option.label }}</span>
+              </button>
+            </div>
+            <span v-if="creating" class="composer-creating-label" aria-live="polite">
+              正在为你创建应用
+            </span>
             <div class="composer-submit">
               <span class="prompt-counter">{{ userPrompt.length }}<span> / 1000</span></span>
               <button
@@ -504,20 +540,52 @@ onUnmounted(() => {
   gap: 16px;
   margin-top: 17px;
 }
-.composer-mode {
+.composer-mode-switch {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  padding: 7px 11px;
-  border-radius: 8px;
+  gap: 3px;
+  padding: 3px;
+  border-radius: 10px;
   background: #f4f7f4;
-  color: #5d7065;
-  font-size: 12px;
 }
-.composer-mode svg {
-  width: 15px;
-  height: 15px;
-  color: #36a780;
+.composer-mode-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 4px 9px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: #7b8b82;
+  font-size: 11px;
+  cursor: pointer;
+  transition:
+    color 0.2s,
+    background 0.2s,
+    border-color 0.2s;
+}
+.composer-mode-option :deep(svg) {
+  width: 13px;
+  height: 13px;
+}
+.composer-mode-option:hover:enabled {
+  color: #346b54;
+}
+.composer-mode-option.active {
+  border-color: #dce8df;
+  background: #fff;
+  color: #2e6a50;
+  box-shadow: 0 1px 3px #183d250d;
+}
+.composer-mode-option:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+.composer-creating-label {
+  color: #8a9890;
+  font-size: 11px;
+  white-space: nowrap;
 }
 .composer-submit {
   gap: 16px;
@@ -955,9 +1023,21 @@ onUnmounted(() => {
   .composer-toolbar {
     margin-top: 12px;
   }
-  .composer-mode {
+  .composer-mode-switch {
+    gap: 2px;
+  }
+  .composer-mode-option {
+    min-height: 26px;
+    padding: 4px 7px;
     font-size: 10px;
-    padding: 6px 8px;
+    gap: 4px;
+  }
+  .composer-mode-option :deep(svg) {
+    width: 12px;
+    height: 12px;
+  }
+  .composer-creating-label {
+    display: none;
   }
   .composer-submit {
     gap: 9px;

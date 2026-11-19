@@ -22,15 +22,20 @@ public class RouterNode {
             log.info("执行节点: 智能路由");
 
             CodeGenTypeEnum generationType;
-            try {
-                // 获取AI路由服务
-                AiCodeGenTypeRoutingService routingService = SpringContextUtil.getBean(AiCodeGenTypeRoutingService.class);
-                // 根据原始提示词进行智能路由
-                generationType = routingService.routeCodeGenType(context.getOriginalPrompt());
-                log.info("AI智能路由完成，选择类型: {} ({})", generationType.getValue(), generationType.getText());
-            } catch (Exception e) {
-                log.error("AI智能路由失败，使用默认HTML类型: {}", e.getMessage());
-                generationType = CodeGenTypeEnum.HTML;
+            if (context.getPreferredGenerationType() != null) {
+                generationType = context.getPreferredGenerationType();
+                log.info("沿用应用既有代码生成类型: {} ({})", generationType.getValue(), generationType.getText());
+            } else {
+                try {
+                    // 获取AI路由服务
+                    AiCodeGenTypeRoutingService routingService = SpringContextUtil.getBean(AiCodeGenTypeRoutingService.class);
+                    // 根据原始提示词进行智能路由
+                    generationType = routingService.routeCodeGenType(context.getOriginalPrompt());
+                    log.info("AI智能路由完成，选择类型: {} ({})", generationType.getValue(), generationType.getText());
+                } catch (Exception e) {
+                    log.error("AI智能路由失败，使用默认HTML类型: {}", e.getMessage());
+                    generationType = CodeGenTypeEnum.HTML;
+                }
             }
 
             // 更新状态

@@ -8,7 +8,9 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class MonitorContextHolder {
 
-    private static final ThreadLocal<MonitorContext> CONTEXT_HOLDER = new ThreadLocal<>();
+    // 工作流在虚拟线程中执行，需要让模型监控继承当前用户和应用上下文。
+    private static final InheritableThreadLocal<MonitorContext> CONTEXT_HOLDER =
+            new InheritableThreadLocal<>();
 
     /**
      * 设置监控上下文
