@@ -1,12 +1,13 @@
 package com.atsea.zerox.langgraph4j;
 
-import cn.hutool.json.JSONUtil;
 import com.atsea.zerox.exception.BusinessException;
 import com.atsea.zerox.exception.ErrorCode;
 import com.atsea.zerox.langgraph4j.model.QualityResult;
 import com.atsea.zerox.langgraph4j.node.*;
 import com.atsea.zerox.langgraph4j.state.WorkflowContext;
 import com.atsea.zerox.model.enums.CodeGenTypeEnum;
+import com.atsea.zerox.monitor.MonitorContext;
+import com.atsea.zerox.monitor.MonitorContextHolder;
 import lombok.extern.slf4j.Slf4j;
 import org.bsc.langgraph4j.CompiledGraph;
 import org.bsc.langgraph4j.GraphRepresentation;
@@ -19,6 +20,8 @@ import reactor.core.publisher.Flux;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.bsc.langgraph4j.StateGraph.END;
 import static org.bsc.langgraph4j.StateGraph.START;
@@ -71,11 +74,27 @@ public class CodeGenWorkflow {
      * 执行工作流
      */
     public WorkflowContext executeWorkflow(String originalPrompt) {
+        return executeWorkflow(originalPrompt, null, null);
+    }
+
+    /**
+     * 执行工作流并绑定应用 ID。
+     */
+    public WorkflowContext executeWorkflow(String originalPrompt, Long appId) {
+        return executeWorkflow(originalPrompt, appId, null);
+    }
+
+    /**
+     * 执行工作流并绑定应用 ID 与应用既有代码生成类型。
+     */
+    public WorkflowContext executeWorkflow(String originalPrompt, Long appId, CodeGenTypeEnum preferredGenerationType) {
         CompiledGraph<MessagesState<String>> workflow = createWorkflow();
 
         // 初始化 WorkflowContext
         WorkflowContext initialContext = WorkflowContext.builder()
                 .originalPrompt(originalPrompt)
+                .appId(appId)
+                .preferredGenerationType(preferredGenerationType)
                 .currentStep("初始化")
                 .build();
 
@@ -104,18 +123,66 @@ public class CodeGenWorkflow {
      * 执行工作流（Flux 流式输出版本）
      */
     public Flux<String> executeWorkflowWithFlux(String originalPrompt) {
+        return executeWorkflowWithFlux(originalPrompt, null, null);
+    }
+
+    /**
+     * 执行工作流（Flux 流式输出版本），绑定应用 ID。
+     */
+    public Flux<String> executeWorkflowWithFlux(String originalPrompt, Long appId) {
+        return executeWorkflowWithFlux(originalPrompt, appId, null);
+    }
+
+    /**
+     * 执行工作流（Flux 流式输出版本），绑定应用 ID 与应用既有代码生成类型。
+     */
+    public Flux<String> executeWorkflowWithFlux(String originalPrompt, Long appId,
+                                                CodeGenTypeEnum preferredGenerationType) {
+        return executeWorkflowWithFlux(originalPrompt, appId, preferredGenerationType, null, null);
+    }
+
+    /**
+     * 执行工作流并在线程内设置监控上下文；后台任务结束时触发清理回调。
+     */
+    public Flux<String> executeWorkflowWithFlux(String originalPrompt, Long appId,
+                                                CodeGenTypeEnum preferredGenerationType,
+                                                MonitorContext monitorContext, Runnable onTermination) {
         return Flux.create(sink -> {
-            Thread.startVirtualThread(() -> {
+            AtomicReference<Thread> workerRef = new AtomicReference<>();
+            AtomicBoolean terminationNotified = new AtomicBoolean();
+            Runnable notifyTermination = () -> {
+                if (terminationNotified.compareAndSet(false, true) && onTermination != null) {
+                    onTermination.run();
+                }
+            };
+            sink.onCancel(() -> {
+                Thread worker = workerRef.get();
+                if (worker != null) {
+                    worker.interrupt();
+                }
+            });
+            if (sink.isCancelled()) {
+                notifyTermination.run();
+                return;
+            }
+
+            Thread worker = Thread.ofVirtual().unstarted(() -> {
+                if (monitorContext != null) {
+                    MonitorContextHolder.setContext(monitorContext);
+                }
                 try {
+                    if (Thread.currentThread().isInterrupted()) {
+                        return;
+                    }
                     CompiledGraph<MessagesState<String>> workflow = createWorkflow();
                     WorkflowContext initialContext = WorkflowContext.builder()
                             .originalPrompt(originalPrompt)
+                            .appId(appId)
+                            .preferredGenerationType(preferredGenerationType)
                             .currentStep("初始化")
                             .build();
-                    sink.next(formatSseEvent("workflow_start", Map.of(
-                            "message", "开始执行代码生成工作流",
-                            "originalPrompt", originalPrompt
-                    )));
+                    // AppController 会将 Flux 每个元素包装成 {d: ...}，因此这里返回普通文本。
+                    sink.next("工作流已启动：正在分析需求");
                     GraphRepresentation graph = workflow.getGraph(GraphRepresentation.Type.MERMAID);
                     log.info("工作流图:\n{}", graph.content());
 
@@ -125,42 +192,39 @@ public class CodeGenWorkflow {
                         log.info("--- 第 {} 步完成 ---", stepCounter);
                         WorkflowContext currentContext = WorkflowContext.getContext(step.state());
                         if (currentContext != null) {
-                            sink.next(formatSseEvent("step_completed", Map.of(
-                                    "stepNumber", stepCounter,
-                                    "currentStep", currentContext.getCurrentStep()
-                            )));
+                            sink.next(String.format("工作流进度：第 %d 步 - %s", stepCounter,
+                                    currentContext.getCurrentStep()));
                             log.info("当前步骤上下文: {}", currentContext);
                         }
                         stepCounter++;
                     }
-                    sink.next(formatSseEvent("workflow_completed", Map.of(
-                            "message", "代码生成工作流执行完成！"
-                    )));
+                    sink.next("工作流已完成：正在刷新应用预览");
                     log.info("代码生成工作流执行完成！");
                     sink.complete();
                 } catch (Exception e) {
                     log.error("工作流执行失败: {}", e.getMessage(), e);
-                    sink.next(formatSseEvent("workflow_error", Map.of(
-                            "error", e.getMessage(),
-                            "message", "工作流执行失败"
-                    )));
-                    sink.error(e);
+                    if (!sink.isCancelled()) {
+                        sink.next("工作流执行失败：" + (e.getMessage() == null ? "未知错误" : e.getMessage()));
+                        sink.error(e);
+                    }
+                } finally {
+                    MonitorContextHolder.clearContext();
+                    notifyTermination.run();
                 }
             });
+            workerRef.set(worker);
+            if (sink.isCancelled()) {
+                worker.interrupt();
+                notifyTermination.run();
+                return;
+            }
+            try {
+                worker.start();
+            } catch (RuntimeException e) {
+                notifyTermination.run();
+                sink.error(e);
+            }
         });
-    }
-
-    /**
-     * 格式化 SSE 事件的辅助方法
-     */
-    private String formatSseEvent(String eventType, Object data) {
-        try {
-            String jsonData = JSONUtil.toJsonStr(data);
-            return "event: " + eventType + "\ndata: " + jsonData + "\n\n";
-        } catch (Exception e) {
-            log.error("格式化 SSE 事件失败: {}", e.getMessage(), e);
-            return "event: error\ndata: {\"error\":\"格式化失败\"}\n\n";
-        }
     }
 
     /**

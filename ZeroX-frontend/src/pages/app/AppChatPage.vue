@@ -241,6 +241,15 @@ import {
 const route = useRoute()
 const router = useRouter()
 const loginUserStore = useLoginUserStore()
+const isWorkflowMode = ref(route.query.agent === 'true')
+
+const useStandardModeForExistingApp = async () => {
+  if (!isWorkflowMode.value) return
+  isWorkflowMode.value = false
+  const query = { ...route.query }
+  delete query.agent
+  await router.replace({ query })
+}
 
 // 应用信息
 const appInfo = ref<API.AppVO>()
@@ -375,6 +384,10 @@ const fetchAppInfo = async () => {
 
       // 先加载对话历史
       await loadChatHistory()
+      // 已有对话代表这是修改请求，后续固定使用标准模式。
+      if (messages.value.length > 0) {
+        await useStandardModeForExistingApp()
+      }
       // 如果有至少2条对话记录，展示对应的网站
       if (messages.value.length >= 2) {
         updatePreview()
@@ -488,6 +501,9 @@ const generateCode = async (userMessage: string, aiMessageIndex: number) => {
       appId: appId.value || '',
       message: userMessage,
     })
+    if (isWorkflowMode.value) {
+      params.set('agent', 'true')
+    }
 
     const url = `${baseURL}/app/chat/gen/code?${params}`
 
@@ -527,6 +543,7 @@ const generateCode = async (userMessage: string, aiMessageIndex: number) => {
       streamCompleted = true
       isGenerating.value = false
       eventSource?.close()
+      void useStandardModeForExistingApp()
 
       // 延迟更新预览，确保后端已完成处理
       setTimeout(async () => {
@@ -552,6 +569,7 @@ const generateCode = async (userMessage: string, aiMessageIndex: number) => {
         streamCompleted = true
         isGenerating.value = false
         eventSource?.close()
+        void useStandardModeForExistingApp()
       } catch (parseError) {
         console.error('解析错误事件失败:', parseError, '原始数据:', event.data)
         handleError(new Error('服务器返回错误'), aiMessageIndex)
@@ -566,6 +584,7 @@ const generateCode = async (userMessage: string, aiMessageIndex: number) => {
         streamCompleted = true
         isGenerating.value = false
         eventSource?.close()
+        void useStandardModeForExistingApp()
 
         setTimeout(async () => {
           await fetchAppInfo()
@@ -588,6 +607,7 @@ const handleError = (error: unknown, aiMessageIndex: number) => {
   messages.value[aiMessageIndex].loading = false
   message.error('生成失败，请重试')
   isGenerating.value = false
+  void useStandardModeForExistingApp()
 }
 
 // 更新预览

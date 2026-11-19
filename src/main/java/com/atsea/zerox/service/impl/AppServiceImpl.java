@@ -13,6 +13,7 @@ import com.atsea.zerox.constant.AppConstant;
 import com.atsea.zerox.core.AiCodeGeneratorFacade;
 import com.atsea.zerox.core.builder.VueProjectBuilder;
 import com.atsea.zerox.core.handler.StreamHandlerExecutor;
+import com.atsea.zerox.langgraph4j.CodeGenWorkflow;
 import com.atsea.zerox.exception.BusinessException;
 import com.atsea.zerox.exception.ErrorCode;
 import com.atsea.zerox.exception.ThrowUtils;
@@ -44,6 +45,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
@@ -54,6 +56,8 @@ import java.util.stream.Collectors;
 @Service
 @Slf4j
 public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppService {
+
+    private final Set<Long> generationsInProgress = ConcurrentHashMap.newKeySet();
 
     @Value("${code.deploy-host:http://localhost}")
     private String deployHost;
@@ -81,6 +85,11 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
 
     @Override
     public Flux<String> chatToGenCode(Long appId, String message, User loginUser) {
+        return chatToGenCode(appId, message, loginUser, false);
+    }
+
+    @Override
+    public Flux<String> chatToGenCode(Long appId, String message, User loginUser, boolean agent) {
         // 1. 参数校验
         ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用 ID 错误");
         ThrowUtils.throwIf(StrUtil.isBlank(message), ErrorCode.PARAMS_ERROR, "提示词不能为空");
@@ -97,22 +106,94 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         if (codeGenTypeEnum == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "应用代码生成类型错误");
         }
-        // 5. 在调用 AI 前，先保存用户消息到数据库中
-        chatHistoryService.addChatMessage(appId, message, ChatHistoryMessageTypeEnum.USER.getValue(), loginUser.getId());
-        // 6. 设置监控上下文（用户 ID 和应用 ID）
-        MonitorContextHolder.setContext(
-                MonitorContext.builder()
-                        .userId(loginUser.getId().toString())
-                        .appId(appId.toString())
-                        .build()
-        );
-        // 7. 调用 AI 生成代码（流式）
-        Flux<String> codeStream = aiCodeGeneratorFacade.generateAndSaveCodeStream(message, codeGenTypeEnum, appId);
-        // 8. 收集 AI 响应的内容，并且在完成后保存记录到对话历史
-        return streamHandlerExecutor.doExecute(codeStream, chatHistoryService, appId, loginUser, codeGenTypeEnum)
-                .doFinally(signalType -> {
-                    // 流结束时清理（无论成功/失败/取消）
-                    MonitorContextHolder.clearContext();
+        ThrowUtils.throwIf(!generationsInProgress.add(appId), ErrorCode.OPERATION_ERROR, "该应用正在生成中，请稍后再试");
+        try {
+            // 工作流仅用于首次请求；历史消息或已有源文件都表示该应用已开始生成。
+            boolean useWorkflow = agent && !hasChatHistory(appId) && !hasGeneratedProject(codeGenTypeEnum, appId);
+            if (agent && !useWorkflow) {
+                log.info("应用已开始生成，忽略工作流模式请求并使用标准模式，appId={}", appId);
+            }
+            // 5. 在调用 AI 前，先保存用户消息到数据库中
+            chatHistoryService.addChatMessage(appId, message, ChatHistoryMessageTypeEnum.USER.getValue(), loginUser.getId());
+            // 在线程真正订阅/执行时设置监控上下文，避免依赖请求线程到 Reactor 线程的继承。
+            MonitorContext monitorContext = MonitorContext.builder()
+                    .userId(loginUser.getId().toString())
+                    .appId(appId.toString())
+                    .build();
+            if (useWorkflow) {
+                Flux<String> workflowStream = new CodeGenWorkflow()
+                        .executeWorkflowWithFlux(message, appId, codeGenTypeEnum, monitorContext,
+                                () -> generationsInProgress.remove(appId));
+                return recordWorkflowResponse(workflowStream, appId, loginUser);
+            }
+            // 7. 调用标准门面生成代码（流式）；在订阅线程中设置上下文并完成清理。
+            return Flux.defer(() -> {
+                MonitorContextHolder.setContext(monitorContext);
+                Flux<String> codeStream = aiCodeGeneratorFacade
+                        .generateAndSaveCodeStream(message, codeGenTypeEnum, appId);
+                // 收集 AI 响应的内容，并且在完成后保存记录到对话历史
+                return streamHandlerExecutor.doExecute(codeStream, chatHistoryService, appId, loginUser, codeGenTypeEnum);
+            })
+                    .doFinally(signalType -> {
+                        generationsInProgress.remove(appId);
+                        MonitorContextHolder.clearContext();
+                    });
+        } catch (RuntimeException e) {
+            generationsInProgress.remove(appId);
+            throw e;
+        }
+    }
+
+    private boolean hasChatHistory(Long appId) {
+        return chatHistoryService.count(QueryWrapper.create().eq("appId", appId)) > 0;
+    }
+
+    /**
+     * 判断应用输出目录中是否已有实际生成文件，用于区分首次生成和后续修改。
+     */
+    private boolean hasGeneratedProject(CodeGenTypeEnum codeGenType, Long appId) {
+        File outputDir = new File(AppConstant.CODE_OUTPUT_ROOT_DIR,
+                codeGenType.getValue() + "_" + appId);
+        if (!outputDir.isDirectory()) {
+            return false;
+        }
+        return hasProjectSourceFiles(outputDir);
+    }
+
+    private boolean hasProjectSourceFiles(File directory) {
+        File[] files = directory.listFiles();
+        if (files == null) {
+            return false;
+        }
+        for (File file : files) {
+            if (file.isDirectory() && Set.of("node_modules", "dist", "target", ".git").contains(file.getName())) {
+                continue;
+            }
+            if (file.isFile() || (file.isDirectory() && hasProjectSourceFiles(file))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * 工作流的 Flux 只含进度文本，不适用标准模式的代码消息解析器；单独记录其 AI 回复。
+     */
+    private Flux<String> recordWorkflowResponse(Flux<String> workflowStream, Long appId, User loginUser) {
+        StringBuilder responseBuilder = new StringBuilder();
+        return workflowStream
+                .doOnNext(chunk -> responseBuilder.append(chunk).append('\n'))
+                .doOnComplete(() -> chatHistoryService.addChatMessage(
+                        appId, responseBuilder.toString(), ChatHistoryMessageTypeEnum.AI.getValue(), loginUser.getId()))
+                .doOnError(error -> {
+                    String errorMessage = error.getMessage() == null ? "未知错误" : error.getMessage();
+                    if (responseBuilder.isEmpty()) {
+                        responseBuilder.append("工作流生成失败：").append(errorMessage);
+                    } else if (!responseBuilder.toString().contains("工作流执行失败：")) {
+                        responseBuilder.append("\n工作流生成失败：").append(errorMessage);
+                    }
+                    chatHistoryService.addChatMessage(appId, responseBuilder.toString(),
+                            ChatHistoryMessageTypeEnum.AI.getValue(), loginUser.getId());
                 });
     }
 

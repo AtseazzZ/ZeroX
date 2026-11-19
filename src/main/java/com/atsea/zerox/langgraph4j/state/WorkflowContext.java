@@ -40,6 +40,16 @@ public class WorkflowContext implements Serializable {
     private String originalPrompt;
 
     /**
+     * 当前应用 ID。工作流首次生成时必须写入应用真实目录。
+     */
+    private Long appId;
+
+    /**
+     * 应用已确定的代码生成类型。已有应用沿用该类型，避免预览目录错位。
+     */
+    private CodeGenTypeEnum preferredGenerationType;
+
+    /**
      * 图片资源字符串
      */
     private String imageListStr;

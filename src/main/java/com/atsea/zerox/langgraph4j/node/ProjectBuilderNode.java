@@ -31,9 +31,17 @@ public class ProjectBuilderNode {
             String buildResultDir;
             // 一定是 Vue 项目类型：使用 VueProjectBuilder 进行构建
             try {
-                VueProjectBuilder vueBuilder = SpringContextUtil.getBean(VueProjectBuilder.class);
-                // 执行 Vue 项目构建（npm install + npm run build）
-                boolean buildSuccess = vueBuilder.buildProject(generatedCodeDir);
+                File distDir = new File(generatedCodeDir, "dist");
+                boolean buildSuccess;
+                if (distDir.isDirectory() && hasFiles(distDir)) {
+                    // VUE_PROJECT 的门面在 TokenStream 完成时已构建，避免重复 npm install/build。
+                    log.info("检测到已有 dist 目录，跳过重复构建: {}", distDir.getAbsolutePath());
+                    buildSuccess = true;
+                } else {
+                    VueProjectBuilder vueBuilder = SpringContextUtil.getBean(VueProjectBuilder.class);
+                    // 执行 Vue 项目构建（npm install + npm run build）
+                    buildSuccess = vueBuilder.buildProject(generatedCodeDir);
+                }
                 if (buildSuccess) {
                     // 构建成功，返回 dist 目录路径
                     buildResultDir = generatedCodeDir + File.separator + "dist";
@@ -51,5 +59,18 @@ public class ProjectBuilderNode {
             log.info("项目构建节点完成，最终目录: {}", buildResultDir);
             return WorkflowContext.saveContext(context);
         });
+    }
+
+    private static boolean hasFiles(File directory) {
+        File[] files = directory.listFiles();
+        if (files == null) {
+            return false;
+        }
+        for (File file : files) {
+            if (file.isFile() || (file.isDirectory() && hasFiles(file))) {
+                return true;
+            }
+        }
+        return false;
     }
 }

@@ -60,6 +60,7 @@ public class AppController {
     @RateLimit(limitType = RateLimitType.USER, rate = 5, rateInterval = 60, message = "AI 对话请求过于频繁，请稍后再试")
     public Flux<ServerSentEvent<String>> chatToGenCode(@RequestParam Long appId,
                                                        @RequestParam String message,
+                                                       @RequestParam(defaultValue = "false") boolean agent,
                                                        HttpServletRequest request) {
         // 参数校验
         ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用 id 错误");
@@ -67,7 +68,7 @@ public class AppController {
         // 获取当前登录用户
         User loginUser = userService.getLoginUser(request);
         // 调用服务生成代码（SSE 流式返回）
-        Flux<String> contentFlux = appService.chatToGenCode(appId, message, loginUser);
+        Flux<String> contentFlux = appService.chatToGenCode(appId, message, loginUser, agent);
         return contentFlux
                 .map(chunk -> {
                     Map<String, String> wrapper = Map.of("d", chunk);
